@@ -1,0 +1,39 @@
+{
+  "name": "hms-backend",
+  "version": "1.0.0",
+  "description": "Hospital Management System Backend API (MERN)",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "seed": "node src/utils/seeder.js -i",
+    "seed:destroy": "node src/utils/seeder.js -d",
+    "clear:admin": "node -e \"import('mongoose').then(async ({ default: m }) => { await m.connect('mongodb://127.0.0.1:27017/hms_db'); const res = await m.connection.db.collection('users').deleteMany({ role: 'admin' }); console.log('Deleted admins:', res.deletedCount); await m.disconnect(); });\""
+  },
+  "keywords": [
+    "mern",
+    "hospital-management-system",
+    "rbac",
+    "jwt",
+    "mongodb"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-validator": "^7.2.1",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.12.1",
+    "morgan": "^1.10.0",
+    "multer": "^2.3.0",
+    "nodemailer": "^6.10.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
