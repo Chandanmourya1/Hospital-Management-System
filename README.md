@@ -38,45 +38,45 @@
 ### 1. 💊 Central Pharmacy Management & FEFO Dispensing Desk
 Batch-wise expiry control, automated First-Expired First-Out (FEFO) allocation, real-time quarantine alerts, and retail POS counter checkout.
 
-<div align="center">
-  <img src="docs/screenshots/pharmacy_console.png" alt="Pharmacy Management Console" width="90%" style="border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.12);" />
-</div>
+<p align="center">
+  <img src="./docs/screenshots/pharmacy_console.png" alt="Pharmacy Management Console" width="850" />
+</p>
 
-<br />
+---
 
 ### 2. 🔬 Diagnostic Laboratory & Critical Panic Values Center
 Master test catalog, automated reference interval evaluation (Normal/Low/High/Critical), panic alert notification center, and NABL-format verification.
 
-<div align="center">
-  <img src="docs/screenshots/diagnostic_lab.png" alt="Diagnostic Laboratory & Panic Values Center" width="90%" style="border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.12);" />
-</div>
+<p align="center">
+  <img src="./docs/screenshots/diagnostic_lab.png" alt="Diagnostic Laboratory & Panic Values Center" width="850" />
+</p>
 
-<br />
+---
 
 ### 3. 📁 Electronic Medical Records (EMR) Longitudinal Timeline
 Consolidated patient clinical dossier: diagnoses, surgical history, allergy tags, test reports, and print-ready clinical summaries.
 
-<div align="center">
-  <img src="docs/screenshots/emr_portal.png" alt="Electronic Medical Records (EMR)" width="90%" style="border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.12);" />
-</div>
+<p align="center">
+  <img src="./docs/screenshots/emr_portal.png" alt="Electronic Medical Records (EMR)" width="850" />
+</p>
 
-<br />
+---
 
 ### 4. 🩺 NABH Outpatient Digital Prescription Slip (`RX-1001`)
 Clean, printable prescription slips (`@media print` formatted) with hospital letterhead, doctor credentials, vital signs, medication regimens, and dietary advice.
 
-<div align="center">
-  <img src="docs/screenshots/opd_prescription.png" alt="OPD Prescription Slip" width="65%" style="border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.12);" />
-</div>
+<p align="center">
+  <img src="./docs/screenshots/opd_prescription.png" alt="OPD Prescription Slip" width="600" />
+</p>
 
-<br />
+---
 
 ### 5. 📅 Online Consultation Pass & Specialist Credentialing
 Multi-step appointment scheduling with atomic conflict checks, downloadable consultation passes, and admin doctor credentialing intake.
 
 | 📅 Appointment Consultation Pass (`APT-1006`) | 👨‍⚕️ Specialist Onboarding Wizard |
 | :---: | :---: |
-| <img src="docs/screenshots/appointment_pass.png" alt="Appointment Pass" width="100%" style="border-radius: 10px;" /> | <img src="docs/screenshots/doctor_onboarding.png" alt="Doctor Onboarding Wizard" width="100%" style="border-radius: 10px;" /> |
+| <img src="./docs/screenshots/appointment_pass.png" alt="Appointment Pass" width="400" /> | <img src="./docs/screenshots/doctor_onboarding.png" alt="Doctor Onboarding Wizard" width="400" /> |
 
 ---
 

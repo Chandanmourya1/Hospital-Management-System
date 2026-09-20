@@ -1,0 +1,21 @@
+{
+  "name": "hospital-management-system",
+  "version": "1.0.0",
+  "description": "Hospital Management System (HMS) - Final Year B.Tech Major Project",
+  "scripts": {
+    "backend:dev": "npm --prefix backend run dev",
+    "frontend:dev": "npm --prefix frontend run dev",
+    "seed": "npm --prefix backend run seed",
+    "seed:destroy": "npm --prefix backend run seed:destroy"
+  },
+  "keywords": [
+    "mern",
+    "healthcare",
+    "hospital-management-system",
+    "rbac",
+    "jwt",
+    "rest-api"
+  ],
+  "author": "",
+  "license": "ISC"
+}
