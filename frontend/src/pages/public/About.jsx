@@ -204,23 +204,23 @@ const About = () => {
         <div className="absolute top-1/2 -right-24 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 relative z-10">
-          <div className="max-w-3xl space-y-4">
+          <div className="max-w-4xl mx-auto text-center space-y-5 flex flex-col items-center">
             {/* Accreditation Badge */}
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-semibold text-sky-200">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-semibold text-sky-200 shadow-sm">
               <Award className="w-4 h-4 text-sky-400" />
               <span>NABH Accredited Tertiary Referral Hospital</span>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
             </div>
 
-            <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white leading-tight">
-              Centre for Clinical Excellence & Patient-Centered Care
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-tight">
+              Centre for Clinical Excellence &amp; Patient-Centered Care
             </h1>
 
-            <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
+            <p className="text-slate-300 text-sm sm:text-base lg:text-lg leading-relaxed max-w-3xl mx-auto">
               Established in 2005, MedCare Multi-Speciality Hospital represents the pinnacle of modern healthcare delivery. We unite world-renowned medical consultants, robotic surgical advancements, and an intelligent digital health information system to heal, protect, and empower human lives.
             </p>
 
-            <div className="pt-3 flex flex-wrap items-center gap-3">
+            <div className="pt-3 flex flex-wrap items-center justify-center gap-3">
               <Link
                 to="/appointments/book"
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white text-xs sm:text-sm font-bold shadow-lg shadow-sky-500/25 transition-all hover:scale-105"

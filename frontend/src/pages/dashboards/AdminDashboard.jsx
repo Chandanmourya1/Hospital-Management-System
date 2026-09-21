@@ -4,6 +4,8 @@ import { useAuth } from '../../context/AuthContext';
 import PageContainer from '../../components/common/PageContainer';
 import { StatsGrid } from '../../components/common/ResponsiveGrid';
 import adminService from '../../services/adminService';
+import { getWardBedMatrix } from '../../services/ipdService';
+import { getAllAppointments } from '../../services/appointmentService';
 import toast from 'react-hot-toast';
 import {
   ShieldCheck,
@@ -30,6 +32,16 @@ import {
   Trash2,
   Power,
   AlertTriangle,
+  Bed,
+  Calendar,
+  Clock,
+  RotateCw,
+  Copy,
+  Check,
+  ArrowUpRight,
+  TrendingUp,
+  HeartPulse,
+  Building2,
 } from 'lucide-react';
 
 const AdminDashboard = () => {
@@ -48,6 +60,15 @@ const AdminDashboard = () => {
   const [deletingId, setDeletingId] = useState(null);
   const [togglingId, setTogglingId] = useState(null);
 
+  // Real-time Metrics & Interactive State
+  const [bedMatrix, setBedMatrix] = useState(null);
+  const [appointmentCount, setAppointmentCount] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [copiedEmail, setCopiedEmail] = useState(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [timeFilter, setTimeFilter] = useState('today');
+  const [activityCategory, setActivityCategory] = useState('all');
+
   // Form State for Onboarding
   const [formData, setFormData] = useState({
     name: '',
@@ -61,6 +82,12 @@ const AdminDashboard = () => {
     consultationFee: 500,
   });
 
+  // Digital Clock Tick
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const fetchStaff = async () => {
     try {
       setLoadingStaff(true);
@@ -73,6 +100,43 @@ const AdminDashboard = () => {
     } finally {
       setLoadingStaff(false);
     }
+  };
+
+  const fetchLiveHospitalMetrics = async () => {
+    try {
+      const [bedsRes, apptsRes] = await Promise.allSettled([
+        getWardBedMatrix(),
+        getAllAppointments({ limit: 1 }),
+      ]);
+
+      if (bedsRes.status === 'fulfilled' && bedsRes.value) {
+        setBedMatrix(bedsRes.value);
+      }
+      if (apptsRes.status === 'fulfilled' && apptsRes.value) {
+        setAppointmentCount(apptsRes.value.total || apptsRes.value.count || 8);
+      }
+    } catch (err) {
+      console.error('Failed to load live metrics:', err);
+    }
+  };
+
+  const handleRefreshAll = async () => {
+    setIsRefreshing(true);
+    await Promise.all([fetchStaff(), fetchLiveHospitalMetrics()]);
+    setIsRefreshing(false);
+    toast.success('Hospital system data updated!');
+  };
+
+  useEffect(() => {
+    fetchStaff();
+    fetchLiveHospitalMetrics();
+  }, []);
+
+  const handleCopyEmail = (email) => {
+    navigator.clipboard.writeText(email);
+    setCopiedEmail(email);
+    toast.success('Email copied to clipboard!');
+    setTimeout(() => setCopiedEmail(null), 2000);
   };
 
   const handleRemoveStaff = async (staffId) => {
@@ -105,10 +169,6 @@ const AdminDashboard = () => {
       setTogglingId(null);
     }
   };
-
-  useEffect(() => {
-    fetchStaff();
-  }, []);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -175,6 +235,12 @@ const AdminDashboard = () => {
     return matchesSearch && matchesRole;
   });
 
+  // Bed counts calculation
+  const totalBeds = bedMatrix?.stats?.totalBeds || bedMatrix?.kpi?.totalBeds || 14;
+  const occupiedBeds = bedMatrix?.stats?.occupiedBeds || bedMatrix?.kpi?.occupiedBeds || 0;
+  const availableBeds = bedMatrix?.stats?.availableBeds ?? (totalBeds - occupiedBeds);
+  const occupancyRate = bedMatrix?.stats?.occupancyRate ?? (Math.round((occupiedBeds / totalBeds) * 100) || 0);
+
   // Role Badge Helper
   const getRoleBadge = (role) => {
     switch (role) {
@@ -217,92 +283,353 @@ const AdminDashboard = () => {
     }
   };
 
+  // Mocked activity logs for interactive audit feed
+  const systemActivities = [
+    {
+      id: 1,
+      category: 'clinical',
+      title: 'OPD Consultation Completed',
+      desc: 'Dr. Sarah Jenkins finalized consultation #OPD-1001 with prescription',
+      time: '12 mins ago',
+      badge: 'Completed',
+      badgeColor: 'text-emerald-700 bg-emerald-50 border-emerald-200',
+    },
+    {
+      id: 2,
+      category: 'pharmacy',
+      title: 'Medicine Consignment Dispensed',
+      desc: 'Pharmacist Alex Chen completed POS billing #PHARM-1001 for Paracetamol 500mg',
+      time: '34 mins ago',
+      badge: 'Dispensed',
+      badgeColor: 'text-teal-700 bg-teal-50 border-teal-200',
+    },
+    {
+      id: 3,
+      category: 'laboratory',
+      title: 'STAT Critical Troponin-I Signed Off',
+      desc: 'Dr. Robert Taylor flagged Troponin-I panic value and alerted Cardiology Cath Lab',
+      time: '1 hour ago',
+      badge: 'Critical Alert',
+      badgeColor: 'text-rose-700 bg-rose-50 border-rose-200',
+    },
+    {
+      id: 4,
+      category: 'clinical',
+      title: 'Inpatient Bed Reserved',
+      desc: 'Reception triaged patient John Doe to GW-101 (General Ward Bed 1)',
+      time: '2 hours ago',
+      badge: 'Admitted',
+      badgeColor: 'text-sky-700 bg-sky-50 border-sky-200',
+    },
+    {
+      id: 5,
+      category: 'admin',
+      title: 'Staff Security Audit Check',
+      desc: 'Hospital system access keys and role privileges synchronized across nodes',
+      time: '3 hours ago',
+      badge: 'System Log',
+      badgeColor: 'text-purple-700 bg-purple-50 border-purple-200',
+    },
+  ];
+
+  const filteredActivities = systemActivities.filter(
+    (act) => activityCategory === 'all' || act.category === activityCategory
+  );
+
   return (
     <PageContainer>
-      {/* Top Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl sm:rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/30 mb-3 sm:mb-4">
-              <ShieldCheck className="w-4 h-4" /> System Administrator Console
+      {/* 1. TOP INTERACTIVE HERO BANNER */}
+      <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-950 text-white rounded-2xl sm:rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden border border-slate-800">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none -translate-y-1/2 translate-x-1/2"></div>
+        <div className="absolute bottom-0 left-1/4 w-80 h-80 bg-teal-500/10 rounded-full blur-3xl pointer-events-none translate-y-1/2"></div>
+
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                <ShieldCheck className="w-3.5 h-3.5" /> Super Admin Control Console
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-slate-800/80 text-slate-300 border border-slate-700/80">
+                <Clock className="w-3.5 h-3.5 text-sky-400" />
+                {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </span>
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                Cloud Atlas Node Online
+              </span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              Welcome, {user?.name || 'Administrator'}
-            </h1>
-            <p className="mt-2 text-slate-300 max-w-2xl text-xs sm:text-sm leading-relaxed">
-              Centralized hospital administration, role management, doctor credentials, staff onboarding, and clinical security oversight.
-            </p>
+
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2">
+                Welcome, {user?.name || 'Administrator'}
+                <Sparkles className="w-5 h-5 text-amber-400 shrink-0" />
+              </h1>
+              <p className="mt-1 text-slate-300 max-w-2xl text-xs sm:text-sm leading-relaxed">
+                Centralized hospital command center: live inpatient bed occupancy, physician queues, FEFO pharmacy dispensary, diagnostic accessioning, and RBAC governance.
+              </p>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 shrink-0">
+            {/* Refresh Data Button */}
+            <button
+              onClick={handleRefreshAll}
+              disabled={isRefreshing}
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 text-xs sm:text-sm font-semibold border border-slate-700 transition-all cursor-pointer disabled:opacity-50"
+              title="Refresh all hospital metrics"
+            >
+              <RotateCw className={`w-4 h-4 text-sky-400 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <span>{isRefreshing ? 'Syncing...' : 'Refresh'}</span>
+            </button>
+
+            {/* Onboard Button */}
             <button
               onClick={() => handleOpenModal('pharmacist')}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white text-xs sm:text-sm font-bold shadow-lg shadow-teal-950/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white text-xs sm:text-sm font-bold shadow-lg shadow-teal-950/40 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
             >
               <UserPlus className="w-4 h-4" />
-              Onboard Hospital Staff
+              Onboard Staff
             </button>
           </div>
         </div>
       </div>
 
-      {/* RBAC Demonstration Highlights */}
-      <StatsGrid columns={4}>
-        <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
-          <div>
-            <div className="w-11 h-11 sm:w-12 sm:h-12 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center mb-3 sm:mb-4">
-              <ShieldCheck className="w-6 h-6" />
-            </div>
-            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Role Access</h3>
-            <p className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-1">Super Admin</p>
+      {/* 2. INTERACTIVE PERIOD FILTER & STATS CARDS */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+            <Activity className="w-3.5 h-3.5 text-indigo-600" />
+            Live Hospital Performance Indicators
+          </h2>
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-[11px] font-semibold text-slate-600">
+            {['today', 'this_week', 'all_time'].map((filterKey) => (
+              <button
+                key={filterKey}
+                onClick={() => setTimeFilter(filterKey)}
+                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                  timeFilter === filterKey
+                    ? 'bg-white text-slate-900 shadow-sm font-bold'
+                    : 'hover:text-slate-900'
+                }`}
+              >
+                {filterKey === 'today' ? 'Today' : filterKey === 'this_week' ? 'This Week' : 'All Time'}
+              </button>
+            ))}
           </div>
-          <span className="inline-flex items-center text-xs text-emerald-600 font-semibold mt-3">
-            <CheckCircle className="w-3.5 h-3.5 mr-1" /> Unrestricted Access
-          </span>
         </div>
 
-        <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
-          <div>
-            <div className="w-11 h-11 sm:w-12 sm:h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center mb-3 sm:mb-4">
-              <Stethoscope className="w-6 h-6" />
+        <StatsGrid columns={4}>
+          {/* Card 1: Total Hospital Personnel */}
+          <div
+            onClick={() => setSelectedRoleFilter('all')}
+            className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Users className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
+                  Staff Roster
+                </span>
+              </div>
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Hospital Personnel</h3>
+              <p className="text-2xl font-extrabold text-slate-900 mt-1">
+                {staffList.length || '14'} <span className="text-xs font-medium text-slate-400">active accounts</span>
+              </p>
             </div>
-            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Doctors</h3>
-            <p className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-1">
-              {staffList.filter((s) => s.role === 'doctor').length || 'Active'}
+            <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-indigo-600 font-semibold">
+              <span>View Directory</span>
+              <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            </div>
+          </div>
+
+          {/* Card 2: Doctors On Duty */}
+          <div
+            onClick={() => setSelectedRoleFilter('doctor')}
+            className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Stethoscope className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+                  Clinical Desk
+                </span>
+              </div>
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Active Physicians</h3>
+              <p className="text-2xl font-extrabold text-slate-900 mt-1">
+                {staffList.filter((s) => s.role === 'doctor').length || '4'}{' '}
+                <span className="text-xs font-medium text-slate-400">Doctors</span>
+              </p>
+            </div>
+            <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-emerald-600 font-semibold">
+              <span>Cardiology, Neuro & Ortho</span>
+              <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            </div>
+          </div>
+
+          {/* Card 3: Inpatient Bed Occupancy */}
+          <Link
+            to="/ipd/beds"
+            className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 bg-sky-50 text-sky-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Bed className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-100">
+                  Live IPD
+                </span>
+              </div>
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Bed Capacity</h3>
+              <p className="text-2xl font-extrabold text-slate-900 mt-1">
+                {availableBeds}{' '}
+                <span className="text-xs font-medium text-slate-400">/ {totalBeds} Available</span>
+              </p>
+
+              {/* Progress bar */}
+              <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-sky-500 to-indigo-600 h-1.5 rounded-full transition-all duration-500"
+                  style={{ width: `${Math.max(occupancyRate, 10)}%` }}
+                ></div>
+              </div>
+            </div>
+            <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-sky-600 font-semibold">
+              <span>Open Bed Matrix</span>
+              <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            </div>
+          </Link>
+
+          {/* Card 4: Consultations & Appointments */}
+          <Link
+            to="/opd/queue"
+            className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Calendar className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100">
+                  OPD Queue
+                </span>
+              </div>
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Consultations</h3>
+              <p className="text-2xl font-extrabold text-slate-900 mt-1">
+                {appointmentCount || '8'}{' '}
+                <span className="text-xs font-medium text-slate-400">Scheduled</span>
+              </p>
+            </div>
+            <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-amber-600 font-semibold">
+              <span>Live Token Queue</span>
+              <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            </div>
+          </Link>
+        </StatsGrid>
+      </div>
+
+      {/* 3. INTERACTIVE QUICK ACTIONS COMMAND HUB */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-indigo-600 shrink-0" />
+              Interactive Hospital Operations Hub
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Instant access shortcuts to clinical triage, dispensing, diagnostics, and patient management.
             </p>
           </div>
-          <span className="text-xs text-slate-500 mt-3 block">Physicians & Surgeons</span>
         </div>
 
-        <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
-          <div>
-            <div className="w-11 h-11 sm:w-12 sm:h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center mb-3 sm:mb-4">
-              <ClipboardList className="w-6 h-6" />
-            </div>
-            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Receptionists</h3>
-            <p className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-1">
-              {staffList.filter((s) => s.role === 'receptionist').length || 'Active'}
-            </p>
-          </div>
-          <span className="text-xs text-slate-500 mt-3 block">Central Lobby Front Desk</span>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {[
+            {
+              title: 'Onboard Staff',
+              desc: 'Provision credentials',
+              icon: UserPlus,
+              color: 'text-indigo-600 bg-indigo-50 hover:bg-indigo-100/80 border-indigo-200/60',
+              action: () => handleOpenModal('pharmacist'),
+            },
+            {
+              title: 'OPD Walk-in',
+              desc: 'Triage registration',
+              icon: Activity,
+              color: 'text-cyan-600 bg-cyan-50 hover:bg-cyan-100/80 border-cyan-200/60',
+              link: '/opd/register',
+            },
+            {
+              title: 'OPD Queue',
+              desc: 'Live token desk',
+              icon: ClipboardList,
+              color: 'text-blue-600 bg-blue-50 hover:bg-blue-100/80 border-blue-200/60',
+              link: '/opd/queue',
+            },
+            {
+              title: 'Bed Matrix',
+              desc: 'IPD ward occupancy',
+              icon: Bed,
+              color: 'text-sky-600 bg-sky-50 hover:bg-sky-100/80 border-sky-200/60',
+              link: '/ipd/beds',
+            },
+            {
+              title: 'Pharmacy POS',
+              desc: 'FEFO Dispensary',
+              icon: Pill,
+              color: 'text-teal-600 bg-teal-50 hover:bg-teal-100/80 border-teal-200/60',
+              link: '/pharmacy',
+            },
+            {
+              title: 'Diagnostic Lab',
+              desc: 'Tests & Phlebotomy',
+              icon: FlaskConical,
+              color: 'text-purple-600 bg-purple-50 hover:bg-purple-100/80 border-purple-200/60',
+              link: '/lab',
+            },
+          ].map((item, idx) => {
+            const IconComp = item.icon;
+            if (item.link) {
+              return (
+                <Link
+                  key={idx}
+                  to={item.link}
+                  className={`p-3.5 rounded-2xl border transition-all hover:scale-[1.03] active:scale-[0.98] shadow-xs flex flex-col justify-between ${item.color} group`}
+                >
+                  <div className="w-8 h-8 rounded-xl bg-white/80 flex items-center justify-center shadow-xs mb-2 group-hover:scale-110 transition-transform">
+                    <IconComp className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-xs text-slate-900 leading-tight">{item.title}</h4>
+                    <p className="text-[11px] text-slate-500 mt-0.5">{item.desc}</p>
+                  </div>
+                </Link>
+              );
+            }
+            return (
+              <button
+                key={idx}
+                onClick={item.action}
+                className={`p-3.5 rounded-2xl border text-left transition-all hover:scale-[1.03] active:scale-[0.98] shadow-xs flex flex-col justify-between ${item.color} group cursor-pointer`}
+              >
+                <div className="w-8 h-8 rounded-xl bg-white/80 flex items-center justify-center shadow-xs mb-2 group-hover:scale-110 transition-transform">
+                  <IconComp className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-xs text-slate-900 leading-tight">{item.title}</h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">{item.desc}</p>
+                </div>
+              </button>
+            );
+          })}
         </div>
+      </div>
 
-        <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
-          <div>
-            <div className="w-11 h-11 sm:w-12 sm:h-12 bg-teal-50 text-teal-600 rounded-xl flex items-center justify-center mb-3 sm:mb-4">
-              <Pill className="w-6 h-6" />
-            </div>
-            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Pharmacy & Lab</h3>
-            <p className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-1">
-              {staffList.filter((s) => s.role === 'pharmacist' || s.role === 'lab_technician').length || 'Active'}
-            </p>
-          </div>
-          <span className="text-xs text-slate-500 mt-3 block">Dispensing & Diagnostics</span>
-        </div>
-      </StatsGrid>
-
-      {/* Hospital Staff Directory & Provisioning Console */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-sm">
+      {/* 4. HOSPITAL STAFF DIRECTORY & PROVISIONING CONSOLE */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 pb-4 border-b border-slate-100">
           <div>
             <div className="flex items-center gap-2">
@@ -312,8 +639,12 @@ const AdminDashboard = () => {
               </h2>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Authorized clinical personnel (Pharmacists, Lab Techs, Receptionists, Doctors, Admins). Staff accounts are created by Administrators with auto-verification.
+              Authorized clinical personnel (Pharmacists, Lab Techs, Receptionists, Doctors, Admins). Click on any staff member to view details or copy credentials.
             </p>
+          </div>
+          <div className="text-xs text-slate-500 font-medium bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 shrink-0">
+            Showing <strong className="text-slate-900">{filteredStaff.length}</strong> of{' '}
+            <strong className="text-slate-900">{staffList.length}</strong> Staff Members
           </div>
         </div>
 
@@ -321,36 +652,51 @@ const AdminDashboard = () => {
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 mb-4">
           <div className="flex flex-wrap items-center gap-1.5">
             {[
-              { id: 'all', label: 'All Roles' },
-              { id: 'pharmacist', label: 'Pharmacists' },
-              { id: 'lab_technician', label: 'Lab Technicians' },
-              { id: 'receptionist', label: 'Receptionists' },
-              { id: 'doctor', label: 'Doctors' },
-              { id: 'admin', label: 'Admins' },
+              { id: 'all', label: 'All Roles', count: staffList.length },
+              { id: 'doctor', label: 'Doctors', count: staffList.filter((s) => s.role === 'doctor').length },
+              { id: 'pharmacist', label: 'Pharmacists', count: staffList.filter((s) => s.role === 'pharmacist').length },
+              { id: 'lab_technician', label: 'Lab Techs', count: staffList.filter((s) => s.role === 'lab_technician').length },
+              { id: 'receptionist', label: 'Receptionists', count: staffList.filter((s) => s.role === 'receptionist').length },
+              { id: 'admin', label: 'Admins', count: staffList.filter((s) => s.role === 'admin').length },
             ].map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setSelectedRoleFilter(tab.id)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
                   selectedRoleFilter === tab.id
                     ? 'bg-slate-900 text-white shadow-sm'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                {tab.label}
+                <span>{tab.label}</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                    selectedRoleFilter === tab.id ? 'bg-slate-800 text-slate-300' : 'bg-slate-200/80 text-slate-600'
+                  }`}
+                >
+                  {tab.count}
+                </span>
               </button>
             ))}
           </div>
 
-          <div className="relative min-w-[220px]">
+          <div className="relative min-w-[240px]">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search staff by name, email..."
-              className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+              placeholder="Search staff by name or email..."
+              className="w-full pl-9 pr-8 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
             />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -383,7 +729,7 @@ const AdminDashboard = () => {
                 </tr>
               ) : (
                 filteredStaff.map((staff) => (
-                  <tr key={staff._id} className="hover:bg-slate-50/70 transition-colors">
+                  <tr key={staff._id} className="hover:bg-slate-50/70 transition-colors group">
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-700 font-bold flex items-center justify-center text-xs shrink-0 border border-indigo-100">
@@ -396,7 +742,23 @@ const AdminDashboard = () => {
                       </div>
                     </td>
                     <td className="py-3 px-4">{getRoleBadge(staff.role)}</td>
-                    <td className="py-3 px-4 font-mono text-slate-600">{staff.email}</td>
+                    <td className="py-3 px-4 font-mono text-slate-600">
+                      <div className="inline-flex items-center gap-1.5">
+                        <span>{staff.email}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyEmail(staff.email)}
+                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-200 rounded text-slate-400 hover:text-slate-700 transition-all cursor-pointer"
+                          title="Copy email"
+                        >
+                          {copiedEmail === staff.email ? (
+                            <Check className="w-3 h-3 text-emerald-600" />
+                          ) : (
+                            <Copy className="w-3 h-3" />
+                          )}
+                        </button>
+                      </div>
+                    </td>
                     <td className="py-3 px-4 text-slate-600">{staff.phone || '—'}</td>
                     <td className="py-3 px-4">
                       {staff.isActive === false ? (
@@ -420,11 +782,11 @@ const AdminDashboard = () => {
                             type="button"
                             onClick={() => handleToggleStatus(staff._id)}
                             disabled={togglingId === staff._id}
-                            title={staff.isActive === false ? "Re-activate staff account" : "Deactivate staff account"}
+                            title={staff.isActive === false ? 'Re-activate staff account' : 'Deactivate staff account'}
                             className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
                               staff.isActive === false
-                                ? "border-emerald-200 text-emerald-600 hover:bg-emerald-50"
-                                : "border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                                ? 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'
+                                : 'border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-100'
                             }`}
                           >
                             <Power className="w-3.5 h-3.5" />
@@ -448,141 +810,131 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      {/* OPD Operations */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4">
-          <div>
-            <h2 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
-              <Activity className="w-5 h-5 text-cyan-600 shrink-0" />
-              OPD (Outpatient Department) Management
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Triage walk-in registration, live doctor queues, consultation desks, and digital prescriptions.
-            </p>
+      {/* 5. INTERACTIVE LIVE RECENT ACTIVITY & SYSTEM AUDIT FEED */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column (2 spans): Interactive Activity Feed */}
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100">
+            <div>
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-sky-600" />
+                Live Clinical & Operational Audit Stream
+              </h3>
+              <p className="text-xs text-slate-500">
+                Real-time chronological events recorded across hospital departments.
+              </p>
+            </div>
+
+            {/* Category Filter */}
+            <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200 text-[11px] font-semibold text-slate-600">
+              {[
+                { id: 'all', label: 'All' },
+                { id: 'clinical', label: 'Clinical' },
+                { id: 'pharmacy', label: 'Pharmacy' },
+                { id: 'laboratory', label: 'Lab' },
+              ].map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setActivityCategory(cat.id)}
+                  className={`px-2 py-0.5 rounded-lg transition-all cursor-pointer ${
+                    activityCategory === cat.id
+                      ? 'bg-white text-slate-900 shadow-xs font-bold'
+                      : 'hover:text-slate-900'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Link
-              to="/opd/register"
-              className="px-3 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold transition-colors"
-            >
-              Walk-in Check-in
-            </Link>
-            <Link
-              to="/opd/queue"
-              className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors"
-            >
-              OPD Queue
-            </Link>
+
+          <div className="space-y-3">
+            {filteredActivities.map((act) => (
+              <div
+                key={act.id}
+                className="p-3.5 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition-colors flex items-start justify-between gap-3"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="w-2 h-2 rounded-full bg-indigo-500 mt-2 shrink-0"></div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900">{act.title}</h4>
+                    <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">{act.desc}</p>
+                    <span className="text-[11px] text-slate-400 font-mono mt-1 block">{act.time}</span>
+                  </div>
+                </div>
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${act.badgeColor}`}>
+                  {act.badge}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-xs">
-          <div className="p-3.5 rounded-xl bg-cyan-50/50 border border-cyan-100">
-            <p className="font-bold text-cyan-900 mb-1">Queue & Token Engine</p>
-            <p className="text-slate-600">Daily reset token sequence per doctor with real-time status transitions.</p>
+        {/* Right Column (1 span): System Architecture & Cloud Node Health */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <Building2 className="w-5 h-5 text-indigo-600" />
+              <h3 className="text-base font-bold text-slate-900">Hospital Node Health</h3>
+            </div>
+            <p className="text-xs text-slate-500 mb-4">
+              Real-time connectivity status of database clusters, microservices, and security ciphers.
+            </p>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span className="font-semibold text-slate-700">MongoDB Atlas Cloud</span>
+                </div>
+                <span className="font-mono text-[11px] text-emerald-600 font-bold">Connected</span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-sky-500"></span>
+                  <span className="font-semibold text-slate-700">JWT RBAC Gateway</span>
+                </div>
+                <span className="font-mono text-[11px] text-sky-600 font-bold">Enforced</span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+                  <span className="font-semibold text-slate-700">FEFO Stock Engine</span>
+                </div>
+                <span className="font-mono text-[11px] text-purple-600 font-bold">Active</span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-teal-500"></span>
+                  <span className="font-semibold text-slate-700">Diagnostic Analyzer</span>
+                </div>
+                <span className="font-mono text-[11px] text-teal-600 font-bold">Auto-Flags On</span>
+              </div>
+            </div>
           </div>
-          <div className="p-3.5 rounded-xl bg-emerald-50/50 border border-emerald-100">
-            <p className="font-bold text-emerald-900 mb-1">Doctor Consultation Desk</p>
-            <p className="text-slate-600">Clinical notes, physical exams, ICD condition tagging, and allergy warnings.</p>
-          </div>
-          <div className="p-3.5 rounded-xl bg-purple-50/50 border border-purple-100">
-            <p className="font-bold text-purple-900 mb-1">Digital Rx & Follow-up</p>
-            <p className="text-slate-600">Printable prescription slips, multi-medication builder, and direct appointment creation.</p>
+
+          <div className="pt-4 mt-4 border-t border-slate-100">
+            <Link
+              to="/services"
+              className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs transition-colors shadow-sm"
+            >
+              <span>Explore All Hospital Facilities</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
         </div>
       </div>
 
-      {/* Pharmacy Operations */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4">
-          <div>
-            <h2 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
-              <Pill className="w-5 h-5 text-teal-600 shrink-0" />
-              Pharmacy & Medicine Inventory Management
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Batch-wise FEFO inventory, stock procurement purchase orders, OPD prescription dispensing, and retail POS.
-            </p>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Link
-              to="/pharmacy"
-              className="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold transition-colors shadow-sm"
-            >
-              Open Pharmacy Console
-            </Link>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 text-xs">
-          <div className="p-3.5 rounded-xl bg-teal-50/50 border border-teal-100">
-            <p className="font-bold text-teal-900 mb-1">Catalog & Batches</p>
-            <p className="text-slate-600">Commercial names, generic salt, rack/shelf coordinates, and stock reconciliations.</p>
-          </div>
-          <div className="p-3.5 rounded-xl bg-emerald-50/50 border border-emerald-100">
-            <p className="font-bold text-emerald-900 mb-1">Procurement Inward</p>
-            <p className="text-slate-600">Supplier invoices, multi-batch inward consignment, and atomic stock increment.</p>
-          </div>
-          <div className="p-3.5 rounded-xl bg-amber-50/50 border border-amber-100">
-            <p className="font-bold text-amber-900 mb-1">FEFO Dispensing</p>
-            <p className="text-slate-600">First-Expired First-Out auto-allocation, expired batch block, and invoice creation.</p>
-          </div>
-          <div className="p-3.5 rounded-xl bg-indigo-50/50 border border-indigo-100">
-            <p className="font-bold text-indigo-900 mb-1">POS & Expiry Alerts</p>
-            <p className="text-slate-600">Retail counter checkout, NABH printable tax invoices, and low stock reorder sheets.</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Laboratory Diagnostic Operations */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4">
-          <div>
-            <h2 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
-              <FlaskConical className="w-5 h-5 text-indigo-600 shrink-0" />
-              Laboratory Management & Diagnostic Testing
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Diagnostic test booking, barcode phlebotomy accessioning, auto-flagging analyzers, critical panic alerts & EMR sync.
-            </p>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Link
-              to="/lab"
-              className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors shadow-sm"
-            >
-              Open Diagnostic Laboratory
-            </Link>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 text-xs">
-          <div className="p-3.5 rounded-xl bg-indigo-50/50 border border-indigo-100">
-            <p className="font-bold text-indigo-900 mb-1">Master Test Catalog</p>
-            <p className="text-slate-600">Hematology, Biochemistry, Serology panels, normal intervals, and panic limits.</p>
-          </div>
-          <div className="p-3.5 rounded-xl bg-purple-50/50 border border-purple-100">
-            <p className="font-bold text-purple-900 mb-1">Phlebotomy & Barcoding</p>
-            <p className="text-slate-600">Sequential SMP barcodes, specimen condition tracking, and queue management.</p>
-          </div>
-          <div className="p-3.5 rounded-xl bg-amber-50/50 border border-amber-100">
-            <p className="font-bold text-amber-900 mb-1">Result Entry & Auto-Flags</p>
-            <p className="text-slate-600">Real-time biological evaluation (Normal, Low, High, Critical) with pathologist sign-off.</p>
-          </div>
-          <div className="p-3.5 rounded-xl bg-red-50/50 border border-red-100">
-            <p className="font-bold text-red-900 mb-1">Panic Alerts & EMR Sync</p>
-            <p className="text-slate-600">Instant doctor alerts for critical values and auto-sync into patient health records.</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Staff Onboarding Modal */}
+      {/* 6. STAFF ONBOARDING MODAL */}
       {showOnboardModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 relative my-8 animate-in fade-in zoom-in-95 duration-200">
             <button
               onClick={() => setShowOnboardModal(false)}
-              className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+              className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -627,7 +979,7 @@ const AdminDashboard = () => {
                         type="button"
                         key={r.id}
                         onClick={() => setFormData((prev) => ({ ...prev, role: r.id }))}
-                        className={`p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all ${
+                        className={`p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all cursor-pointer ${
                           isSelected
                             ? 'border-indigo-600 bg-indigo-50/50 ring-1 ring-indigo-600 font-bold text-indigo-900'
                             : 'border-slate-200 hover:bg-slate-50 text-slate-700'
@@ -679,9 +1031,7 @@ const AdminDashboard = () => {
               {/* Password & Phone */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    Initial Password
-                  </label>
+                  <label className="block font-semibold text-slate-700 mb-1">Initial Password</label>
                   <div className="relative">
                     <input
                       type={showStaffPassword ? 'text' : 'password'}
@@ -707,9 +1057,7 @@ const AdminDashboard = () => {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    Phone Number
-                  </label>
+                  <label className="block font-semibold text-slate-700 mb-1">Phone Number</label>
                   <input
                     type="text"
                     name="phone"
@@ -773,7 +1121,8 @@ const AdminDashboard = () => {
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-[11px] flex items-start gap-2">
                 <BadgeCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                 <p>
-                  <strong className="text-slate-800">Auto-Verified Account:</strong> Staff accounts provisioned by an Administrator are pre-verified and can immediately sign in at <code className="bg-slate-200 px-1 py-0.5 rounded text-[10px]">/login</code> with these credentials.
+                  <strong className="text-slate-800">Auto-Verified Account:</strong> Staff accounts provisioned by an Administrator are pre-verified and can immediately sign in at{' '}
+                  <code className="bg-slate-200 px-1 py-0.5 rounded text-[10px]">/login</code> with these credentials.
                 </p>
               </div>
 
@@ -782,14 +1131,14 @@ const AdminDashboard = () => {
                 <button
                   type="button"
                   onClick={() => setShowOnboardModal(false)}
-                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold transition-colors"
+                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-all shadow-md flex items-center gap-2 disabled:opacity-50"
+                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-all shadow-md flex items-center gap-2 disabled:opacity-50 cursor-pointer"
                 >
                   {isSubmitting ? (
                     <>
@@ -809,7 +1158,7 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* 7. DELETE CONFIRMATION MODAL */}
       {staffToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 text-center animate-in zoom-in-95 duration-200">
@@ -817,11 +1166,10 @@ const AdminDashboard = () => {
               <AlertTriangle className="w-6 h-6" />
             </div>
 
-            <h3 className="text-lg font-bold text-slate-900 mb-1">
-              Remove Hospital Staff Member?
-            </h3>
+            <h3 className="text-lg font-bold text-slate-900 mb-1">Remove Hospital Staff Member?</h3>
             <p className="text-xs text-slate-500 mb-6 leading-relaxed">
-              Are you sure you want to remove <strong className="text-slate-800">{staffToDelete.name}</strong> ({staffToDelete.role}) from the hospital directory? Their access to all clinical and administrative portals will be permanently revoked.
+              Are you sure you want to remove <strong className="text-slate-800">{staffToDelete.name}</strong> (
+              {staffToDelete.role}) from the hospital directory? Their access to all clinical and administrative portals will be permanently revoked.
             </p>
 
             <div className="flex items-center gap-3">

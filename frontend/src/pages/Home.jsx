@@ -12,6 +12,9 @@ import {
   MailCheck,
   Database,
   CheckCircle2,
+  Award,
+  Calendar,
+  ChevronRight,
 } from 'lucide-react';
 
 const Home = () => {
@@ -179,6 +182,51 @@ const Home = () => {
               <span className="group-hover:translate-x-1 transition-transform">&rarr;</span>
             </div>
           </Link>
+        </div>
+      </section>
+
+      {/* Centre for Clinical Excellence & Patient-Centered Care Showcase */}
+      <section className="bg-gradient-to-br from-slate-950 via-slate-900 to-sky-950 text-white relative overflow-hidden py-16 sm:py-20 rounded-3xl mx-4 sm:mx-6 lg:mx-8 xl:mx-10 2xl:mx-12 shadow-2xl border border-slate-800">
+        <div className="absolute -top-24 -left-24 w-96 h-96 bg-sky-500/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-1/2 -right-24 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center flex flex-col items-center space-y-5">
+          {/* Accreditation Badge */}
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-semibold text-sky-200 shadow-sm">
+            <Award className="w-4 h-4 text-sky-400" />
+            <span>NABH Accredited Tertiary Referral Hospital</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+          </div>
+
+          <h2 className="text-3xl sm:text-5xl font-black tracking-tight text-white leading-tight">
+            Centre for Clinical Excellence &amp; Patient-Centered Care
+          </h2>
+
+          <p className="text-slate-300 text-sm sm:text-base lg:text-lg leading-relaxed max-w-3xl mx-auto">
+            Established in 2005, MedCare Multi-Speciality Hospital represents the pinnacle of modern healthcare delivery. We unite world-renowned medical consultants, robotic surgical advancements, and an intelligent digital health information system to heal, protect, and empower human lives.
+          </p>
+
+          <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+            <Link
+              to="/appointments/book"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white text-xs sm:text-sm font-bold shadow-lg shadow-sky-500/25 transition-all hover:scale-105"
+            >
+              <Calendar className="w-4 h-4" /> Book Consultation
+            </Link>
+            <Link
+              to="/doctors"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs sm:text-sm font-semibold border border-white/20 transition-colors"
+            >
+              <Stethoscope className="w-4 h-4 text-emerald-400" /> Medical Specialists
+            </Link>
+            <Link
+              to="/services"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white text-xs sm:text-sm font-semibold border border-slate-700 transition-colors"
+            >
+              <span>Explore Services</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
         </div>
       </section>
 
