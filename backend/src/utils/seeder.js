@@ -1,13 +1,15 @@
+import dns from 'dns';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
 import User from '../models/User.js';
 import DoctorProfile from '../models/DoctorProfile.js';
 import PatientProfile from '../models/PatientProfile.js';
 import Appointment from '../models/Appointment.js';
 import OpdVisit from '../models/OpdVisit.js';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import WardRoom from '../models/WardRoom.js';
 import IpdAdmission from '../models/IpdAdmission.js';
 import MedicalDocument from '../models/MedicalDocument.js';
@@ -17,6 +19,13 @@ import PharmacyBill from '../models/PharmacyBill.js';
 import LabTestCatalog from '../models/LabTestCatalog.js';
 import LabOrder from '../models/LabOrder.js';
 import LabReport from '../models/LabReport.js';
+
+// Fix for Windows / ISP DNS timeout on Atlas SRV & TXT records (queryTxt ETIMEOUT)
+try {
+  dns.setServers(['8.8.8.8', '8.8.4.4']);
+} catch (e) {
+  // Ignore if custom DNS cannot be set
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -68,6 +77,12 @@ const getPastDateForDay = (targetDayName) => {
 };
 
 const seedData = async () => {
+  if (process.env.NODE_ENV === 'production' && process.env.ALLOW_PROD_SEED !== 'true') {
+    console.error('\n❌ [Seeder Safety] Blocked: Seeding in production is disabled to prevent accidental data loss.');
+    console.error('💡 To override this, set ALLOW_PROD_SEED=true.\n');
+    process.exit(1);
+  }
+
   try {
     await connectDB();
 
@@ -1868,6 +1883,12 @@ const seedData = async () => {
 };
 
 const destroyData = async () => {
+  if (process.env.NODE_ENV === 'production' && process.env.ALLOW_PROD_SEED !== 'true') {
+    console.error('\n❌ [Seeder Safety] Blocked: Wiping data in production is disabled to protect database records.');
+    console.error('💡 To override this, set ALLOW_PROD_SEED=true.\n');
+    process.exit(1);
+  }
+
   try {
     await connectDB();
     const seedEmails = [
